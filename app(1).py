@@ -42,6 +42,18 @@ def text_from_element(element, names):
     return ""
 
 
+def image_from_element(element):
+    """Find an image URL from common RSS media and enclosure fields."""
+    for child in list(element):
+        tag = child.tag.rsplit("}", 1)[-1]
+        url = child.attrib.get("url", "")
+        if tag in {"content", "thumbnail", "image"} and url:
+            return url
+        if tag == "enclosure" and child.attrib.get("type", "").startswith("image/"):
+            return child.attrib.get("url", "")
+    return ""
+
+
 def parse_feed(content: bytes):
     root = ElementTree.fromstring(content)
     items = []
@@ -64,6 +76,7 @@ def parse_feed(content: bytes):
                 "summary": clean_html(
                     text_from_element(element, {"description", "summary", "content"})
                 ),
+                "image": image_from_element(element),
                 "date": text_from_element(
                     element, {"pubDate", "published", "updated", "date"}
                 ),
@@ -89,7 +102,11 @@ def load_feed(url: str):
 
 
 st.title("🍴 BBC Good Food RSS Reader")
-st.caption("Latest articles from the BBC Good Food RSS feed")
+st.markdown(
+    "Browse the latest recipes, cooking advice and food features from BBC Good Food. "
+    "Use the search box to find articles by title or description."
+)
+st.caption("The feed refreshes automatically every five minutes while this page is open.")
 
 with st.sidebar:
     st.header("Reader settings")
@@ -134,6 +151,8 @@ def display_feed():
     else:
         for article in articles:
             with st.container(border=True):
+                if article["image"]:
+                    st.image(article["image"], use_container_width=True)
                 st.subheader(article["title"])
                 meta = " · ".join(
                     part for part in (article["date"], article["author"]) if part
